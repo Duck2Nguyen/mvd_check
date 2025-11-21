@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiểm tra vận đơn SPX</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Kiểm tra trạng thái vận đơn</h1>
+            <p class="subtitle">Nhập danh sách mã vận đơn (mỗi mã một dòng)</p>
+        </div>
+
+        <div class="input-section">
+            <textarea id="trackingInput"
+                placeholder="Nhập mã vận đơn, mỗi mã một dòng&#10;Ví dụ:&#10;SPXVN05534258930B&#10;VN2523294629250&#10;SPXVN05182782752B"
+                rows="8"></textarea>
+            <button id="checkButton" class="btn-primary">
+                <span class="btn-text">Kiểm tra</span>
+                <span class="loader" style="display: none;"></span>
+            </button>
+            <div id="proxyStatus" class="proxy-status"></div>
+            <button id="switchProxyButton" class="btn-secondary">Đổi Proxy</button>
+        </div>
+
+        <div id="results" class="results-section" style="display: none;">
+            <h2>Kết quả</h2>
+            <div id="resultsList"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
