@@ -12,24 +12,60 @@
     <div class="container">
         <div class="header">
             <h1>Kiểm tra trạng thái vận đơn</h1>
-            <p class="subtitle">Nhập danh sách mã vận đơn (mỗi mã một dòng)</p>
+            <p class="subtitle">Tra cứu và theo dõi mã vận đơn SPX</p>
         </div>
 
-        <div class="input-section">
-            <textarea id="trackingInput"
-                placeholder="Nhập mã vận đơn, mỗi mã một dòng&#10;Ví dụ:&#10;SPXVN05534258930B&#10;VN2523294629250&#10;SPXVN05182782752B"
-                rows="8"></textarea>
-            <button id="checkButton" class="btn-primary">
-                <span class="btn-text">Kiểm tra</span>
-                <span class="loader" style="display: none;"></span>
-            </button>
-            <div id="proxyStatus" class="proxy-status"></div>
-            <button id="switchProxyButton" class="btn-secondary">Đổi Proxy</button>
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="lookup">🔍 Tra cứu nhanh</button>
+            <button class="tab-button" data-tab="monitor">📡 Theo dõi liên tục</button>
         </div>
 
-        <div id="results" class="results-section" style="display: none;">
-            <h2>Kết quả</h2>
-            <div id="resultsList"></div>
+        <!-- Tab 1: Tra cứu nhanh -->
+        <div id="lookup-tab" class="tab-content active">
+            <div class="input-section">
+                <textarea id="trackingInput"
+                    placeholder="Nhập mã vận đơn, mỗi mã một dòng&#10;Ví dụ:&#10;SPXVN05534258930B (Đơn chị a)&#10;VN2523294629250 Đơn chị b&#10;SPXVN05182782752B"
+                    rows="8"></textarea>
+                <button id="checkButton" class="btn-primary">
+                    <span class="btn-text">Kiểm tra</span>
+                    <span class="loader" style="display: none;"></span>
+                </button>
+                <div id="proxyStatus" class="proxy-status"></div>
+                <button id="switchProxyButton" class="btn-secondary">Đổi Proxy</button>
+            </div>
+
+            <div id="results" class="results-section" style="display: none;">
+                <h2>Kết quả</h2>
+                <div id="resultsList"></div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Theo dõi liên tục -->
+        <div id="monitor-tab" class="tab-content">
+            <div class="input-section">
+                <textarea id="monitorInput"
+                    placeholder="Nhập danh sách mã cần theo dõi&#10;Ví dụ:&#10;SPXVN05534258930B (Đơn chị a)&#10;VN2523294629250 Đơn chị b"
+                    rows="8"></textarea>
+                
+                <div class="monitor-controls">
+                    <button id="saveMonitorList" class="btn-primary">💾 Lưu danh sách</button>
+                    <div class="toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notificationToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span id="toggleLabel" class="toggle-label">🔕 Thông báo: TẮT</span>
+                    </div>
+                </div>
+
+                <div id="monitorStatus" class="monitor-status"></div>
+            </div>
+
+            <div id="monitorResults" class="results-section" style="display: none;">
+                <h2>Danh sách theo dõi</h2>
+                <div id="monitorList"></div>
+            </div>
         </div>
     </div>
 

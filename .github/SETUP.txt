@@ -1,0 +1,32 @@
+HƯỚNG DẪN SETUP DISCORD WEBHOOK:
+
+1. Tạo Discord Webhook:
+   - Vào Discord server của bạn
+   - Settings → Integrations → Webhooks → New Webhook
+   - Copy Webhook URL
+
+2. Add Secret vào GitHub:
+   - Vào repo → Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: DISCORD_WEBHOOK_URL
+   - Value: Paste webhook URL vừa copy
+   - Click "Add secret"
+
+3. Cập nhật danh sách theo dõi:
+   - Mở file tracker.js
+   - Sửa mảng TRACKING_CODES (dòng 11-16)
+   - Thêm/bớt/sửa mã vận đơn và note
+
+4. Test thử:
+   - Vào Actions tab trên GitHub
+   - Click "Track Shipments" workflow
+   - Click "Run workflow" → Run
+   - Xem log để kiểm tra
+
+5. Workflow sẽ tự động chạy mỗi 15 phút
+   - Muốn thay đổi tần suất: sửa cron trong file .github/workflows/track-shipments.yml
+
+LƯU Ý:
+- Lần đầu chạy sẽ không có thông báo (chỉ lưu state)
+- Từ lần 2 trở đi mới bắt đầu so sánh và thông báo khi có thay đổi
+- File tracking-state.json lưu trạng thái hiện tại

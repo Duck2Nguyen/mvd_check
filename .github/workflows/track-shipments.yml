@@ -1,0 +1,35 @@
+name: Track Shipments
+
+on:
+  schedule:
+    # Chạy mỗi 15 phút
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  check-tracking:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Check tracking status
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node tracker.js
+      
+      - name: Commit state changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add tracking-state.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update tracking state"
+          git push

@@ -13,6 +13,7 @@ const CORS_PROXIES = [
 let currentProxyIndex = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Tab 1 elements
     const trackingInput = document.getElementById('trackingInput');
     const checkButton = document.getElementById('checkButton');
     const switchProxyButton = document.getElementById('switchProxyButton');
@@ -20,18 +21,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsList = document.getElementById('resultsList');
     const proxyStatus = document.getElementById('proxyStatus');
 
+    // Tab 2 elements
+    const monitorInput = document.getElementById('monitorInput');
+    const saveMonitorList = document.getElementById('saveMonitorList');
+    const notificationToggle = document.getElementById('notificationToggle');
+    const toggleLabel = document.getElementById('toggleLabel');
+    const monitorStatus = document.getElementById('monitorStatus');
+    const monitorResults = document.getElementById('monitorResults');
+    const monitorList = document.getElementById('monitorList');
+
+    // Tab switching
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.dataset.tab;
+            
+            // Update active tab
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Update active content
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === `${targetTab}-tab`) {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+
+    // Tab 1 handlers
     checkButton.addEventListener('click', handleCheck);
     switchProxyButton.addEventListener('click', switchProxy);
     
-    // Show current proxy
-    updateProxyStatus();
-
-    // Allow Enter key in textarea, Ctrl+Enter to submit
     trackingInput.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 'Enter') {
             handleCheck();
         }
     });
+
+    // Tab 2 handlers
+    saveMonitorList.addEventListener('click', handleSaveMonitorList);
+    notificationToggle.addEventListener('change', handleNotificationToggle);
+
+    // Load monitor data
+    loadMonitorData();
+    updateProxyStatus();
 });
 
 function switchProxy() {
@@ -314,4 +351,246 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ========== TAB 2: MONITOR FUNCTIONS ==========
+
+const MONITOR_STORAGE_KEY = 'mvd_monitor_list';
+const MONITOR_STATE_KEY = 'mvd_monitor_state';
+const NOTIFICATION_KEY = 'mvd_notification_enabled';
+let monitorInterval = null;
+
+function loadMonitorData() {
+    const savedList = localStorage.getItem(MONITOR_STORAGE_KEY);
+    const notificationEnabled = localStorage.getItem(NOTIFICATION_KEY) === 'true';
+    
+    if (savedList) {
+        document.getElementById('monitorInput').value = savedList;
+        displayMonitorList();
+    }
+    
+    const toggle = document.getElementById('notificationToggle');
+    toggle.checked = notificationEnabled;
+    updateToggleLabel(notificationEnabled);
+    
+    if (notificationEnabled) {
+        startMonitoring();
+    }
+}
+
+function handleSaveMonitorList() {
+    const monitorInput = document.getElementById('monitorInput');
+    const input = monitorInput.value.trim();
+    
+    if (!input) {
+        alert('Vui lòng nhập danh sách mã vận đơn');
+        return;
+    }
+    
+    localStorage.setItem(MONITOR_STORAGE_KEY, input);
+    displayMonitorList();
+    
+    const monitorStatus = document.getElementById('monitorStatus');
+    monitorStatus.textContent = '✅ Đã lưu danh sách theo dõi';
+    monitorStatus.classList.add('active');
+    
+    setTimeout(() => {
+        monitorStatus.classList.remove('active');
+    }, 3000);
+}
+
+function displayMonitorList() {
+    const input = localStorage.getItem(MONITOR_STORAGE_KEY);
+    if (!input) return;
+    
+    const trackingData = input
+        .split('\n')
+        .map(line => {
+            line = line.trim();
+            if (!line) return null;
+            
+            let code = line;
+            let note = '';
+            
+            if (line.includes('(')) {
+                const parts = line.split('(');
+                code = parts[0].trim();
+                note = parts.slice(1).join('(').replace(/\)/g, '').trim();
+            } else {
+                const parts = line.split(/\s+/);
+                code = parts[0];
+                note = parts.slice(1).join(' ').trim();
+            }
+            
+            return { code, note };
+        })
+        .filter(item => item !== null && item.code.length > 0);
+    
+    const monitorResults = document.getElementById('monitorResults');
+    const monitorList = document.getElementById('monitorList');
+    
+    if (trackingData.length === 0) {
+        monitorResults.style.display = 'none';
+        return;
+    }
+    
+    const html = trackingData.map(item => {
+        return `
+            <div class="monitor-item">
+                <div class="monitor-item-header">
+                    <span class="monitor-code">${escapeHtml(item.code)}</span>
+                    ${item.note ? `<span class="monitor-note">📝 ${escapeHtml(item.note)}</span>` : ''}
+                </div>
+                <div class="monitor-item-status" id="status-${escapeHtml(item.code)}">
+                    ⏳ Đang chờ cập nhật...
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    monitorList.innerHTML = html;
+    monitorResults.style.display = 'block';
+}
+
+function handleNotificationToggle(e) {
+    const enabled = e.target.checked;
+    localStorage.setItem(NOTIFICATION_KEY, enabled);
+    updateToggleLabel(enabled);
+    
+    if (enabled) {
+        if (!localStorage.getItem(MONITOR_STORAGE_KEY)) {
+            alert('Vui lòng lưu danh sách theo dõi trước');
+            e.target.checked = false;
+            return;
+        }
+        startMonitoring();
+    } else {
+        stopMonitoring();
+    }
+}
+
+function updateToggleLabel(enabled) {
+    const label = document.getElementById('toggleLabel');
+    label.textContent = enabled ? '🔔 Thông báo: BẬT' : '🔕 Thông báo: TẮT';
+    label.style.color = enabled ? '#28a745' : '#666';
+}
+
+function startMonitoring() {
+    stopMonitoring(); // Clear existing interval
+    
+    const monitorStatus = document.getElementById('monitorStatus');
+    monitorStatus.textContent = '🔄 Đang theo dõi... Kiểm tra mỗi 5 phút';
+    monitorStatus.classList.add('active');
+    
+    // Check immediately
+    checkMonitorList();
+    
+    // Then check every 5 minutes
+    monitorInterval = setInterval(checkMonitorList, 5 * 60 * 1000);
+}
+
+function stopMonitoring() {
+    if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
+    }
+    
+    const monitorStatus = document.getElementById('monitorStatus');
+    monitorStatus.textContent = '⏸️ Đã dừng theo dõi';
+    monitorStatus.classList.add('active');
+    
+    setTimeout(() => {
+        monitorStatus.classList.remove('active');
+    }, 3000);
+}
+
+async function checkMonitorList() {
+    const input = localStorage.getItem(MONITOR_STORAGE_KEY);
+    if (!input) return;
+    
+    const trackingData = input
+        .split('\n')
+        .map(line => {
+            line = line.trim();
+            if (!line) return null;
+            
+            let code = line;
+            let note = '';
+            
+            if (line.includes('(')) {
+                const parts = line.split('(');
+                code = parts[0].trim();
+                note = parts.slice(1).join('(').replace(/\)/g, '').trim();
+            } else {
+                const parts = line.split(/\s+/);
+                code = parts[0];
+                note = parts.slice(1).join(' ').trim();
+            }
+            
+            return { code, note };
+        })
+        .filter(item => item !== null && item.code.length > 0);
+    
+    const savedState = JSON.parse(localStorage.getItem(MONITOR_STATE_KEY) || '{}');
+    const newState = {};
+    
+    for (const item of trackingData) {
+        try {
+            const result = await fetchTrackingInfo(item.code, 0, item.note);
+            
+            const statusElement = document.getElementById(`status-${item.code}`);
+            if (result.success) {
+                const timeDisplay = result.actualTime ? formatTimestamp(result.actualTime) : '';
+                statusElement.innerHTML = `
+                    <div style="color: #28a745;">✓ ${escapeHtml(result.description)}</div>
+                    ${timeDisplay ? `<div style="font-size: 0.85rem; color: #888;">🕐 ${timeDisplay}</div>` : ''}
+                `;
+                
+                // Check for changes
+                const oldStatus = savedState[item.code];
+                if (oldStatus && oldStatus.tracking_code !== result.fullData?.tracking_code) {
+                    // Send browser notification
+                    sendBrowserNotification(item.code, item.note, result.description);
+                }
+                
+                newState[item.code] = {
+                    tracking_code: result.fullData?.tracking_code || '',
+                    description: result.description
+                };
+            } else {
+                if (statusElement) {
+                    statusElement.innerHTML = `<div style="color: #dc3545;">✗ ${escapeHtml(result.error)}</div>`;
+                }
+                newState[item.code] = savedState[item.code] || null;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (error) {
+            console.error(`Error checking ${item.code}:`, error);
+        }
+    }
+    
+    localStorage.setItem(MONITOR_STATE_KEY, JSON.stringify(newState));
+}
+
+function sendBrowserNotification(code, note, description) {
+    if (!("Notification" in window)) {
+        console.log("Browser doesn't support notifications");
+        return;
+    }
+    
+    if (Notification.permission === "granted") {
+        const title = `📦 ${code}${note ? ` (${note})` : ''}`;
+        new Notification(title, {
+            body: `🔄 ${description}`,
+            icon: 'https://spx.vn/favicon.ico',
+            tag: code
+        });
+    } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                sendBrowserNotification(code, note, description);
+            }
+        });
+    }
 }
