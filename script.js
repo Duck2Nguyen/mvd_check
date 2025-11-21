@@ -1,22 +1,13 @@
 const API_BASE_URL = 'https://spx.vn/shipment/order/open/order/get_order_info';
 const LANGUAGE_CODE = 'vi';
 
-// Multiple CORS proxy options with auto-fallback
-const CORS_PROXIES = [
-    'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
-    'https://proxy.cors.sh/',
-    'https://api.codetabs.com/v1/proxy?quest=',
-    'https://thingproxy.freeboard.io/fetch/',
-];
-
-let currentProxyIndex = 0;
+// Cloudflare Workers proxy (100k requests/ngày miễn phí mãi mãi)
+const PROXY_URL = 'https://soft-dream-598e.taikhoanemail109.workers.dev?url=';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Tab 1 elements
     const trackingInput = document.getElementById('trackingInput');
     const checkButton = document.getElementById('checkButton');
-    const switchProxyButton = document.getElementById('switchProxyButton');
     const resultsSection = document.getElementById('results');
     const resultsList = document.getElementById('resultsList');
     const proxyStatus = document.getElementById('proxyStatus');
@@ -54,7 +45,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Tab 1 handlers
     checkButton.addEventListener('click', handleCheck);
-    switchProxyButton.addEventListener('click', switchProxy);
     
     trackingInput.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 'Enter') {
@@ -71,30 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
     updateProxyStatus();
 });
 
-function switchProxy() {
-    currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
-    updateProxyStatus();
-    
-    // Auto re-check if there are tracking codes
-    const trackingInput = document.getElementById('trackingInput');
-    const input = trackingInput.value.trim();
-    
-    if (input) {
-        // Auto trigger check with new proxy
-        handleCheck();
-    }
-}
-
 function updateProxyStatus() {
     const proxyStatus = document.getElementById('proxyStatus');
-    const proxyNames = [
-        'Cors.sh',
-        'AllOrigins',
-        'CorsProxy.io',
-        'CodeTabs',
-        'Freeboard'
-    ];
-    proxyStatus.textContent = `🌐 Sử dụng proxy: ${proxyNames[currentProxyIndex]}`;
+    proxyStatus.textContent = '🌐 Cloudflare Workers (Ổn định)';
     proxyStatus.className = 'proxy-status active';
 }
 
@@ -154,15 +123,12 @@ async function handleCheck() {
     try {
         // Fetch all tracking info
         const results = await Promise.all(
-            trackingData.map(item => fetchTrackingInfo(item.code, 0, item.note))
+            trackingData.map(item => fetchTrackingInfo(item.code, item.note))
         );
 
         // Display results
         displayResults(results);
         resultsSection.style.display = 'block';
-        
-        // Update proxy status after check
-        updateProxyStatus();
         
         // Scroll to results
         resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -177,12 +143,9 @@ async function handleCheck() {
     }
 }
 
-async function fetchTrackingInfo(trackingCode, retryCount = 0, note = '') {
+async function fetchTrackingInfo(trackingCode, note = '') {
     const apiUrl = `${API_BASE_URL}?spx_tn=${encodeURIComponent(trackingCode)}&language_code=${LANGUAGE_CODE}`;
-    
-    // Try with current proxy
-    const proxy = CORS_PROXIES[currentProxyIndex];
-    const url = `${proxy}${encodeURIComponent(apiUrl)}`;
+    const url = `${PROXY_URL}${encodeURIComponent(apiUrl)}`;
     
     try {
         const controller = new AbortController();
@@ -219,295 +182,179 @@ async function fetchTrackingInfo(trackingCode, retryCount = 0, note = '') {
             };
         }
     } catch (error) {
-        // Auto retry with different proxy
-        if (retryCount < CORS_PROXIES.length - 1) {
-            console.log(`Proxy ${currentProxyIndex} failed for ${trackingCode}, trying next proxy...`);
-            const nextProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
-            
-            // Try next proxy for this specific request
-            const nextProxy = CORS_PROXIES[nextProxyIndex];
-            const nextUrl = `${nextProxy}${encodeURIComponent(apiUrl)}`;
-            
-            try {
-                const response = await fetch(nextUrl, {
-                    headers: { 'Accept': 'application/json' }
-                });
-                const data = await response.json();
-                
-                if (data.retcode === 0 && data.data?.sls_tracking_info?.records) {
-                    const records = data.data.sls_tracking_info.records;
-                    const firstRecord = records[0];
-                    
-                    return {
-                        code: trackingCode,
-                        note: note,
-                        success: true,
-                        description: firstRecord?.description || 'Không có thông tin trạng thái',
-                        actualTime: firstRecord?.actual_time || null,
-                        fullData: firstRecord
-                    };
-                }
-            } catch (retryError) {
-                console.log(`Retry also failed for ${trackingCode}`);
-            }
-        }
-        
+        console.error(`Error fetching tracking info for ${trackingCode}:`, error);
         return {
             code: trackingCode,
             note: note,
             success: false,
-            error: 'Lỗi kết nối: ' + (error.name === 'AbortError' ? 'Timeout' : error.message)
+            error: 'Lỗi kết nối. Vui lòng thử lại.'
         };
     }
 }
 
 function displayResults(results) {
     const resultsList = document.getElementById('resultsList');
-    
-    // Calculate summary
-    const total = results.length;
-    const success = results.filter(r => r.success).length;
-    const failed = total - success;
-    
-    // Create summary
-    const summaryHTML = `
-        <div class="summary">
-            <div class="summary-item">
-                <div class="summary-label">Tổng số</div>
-                <div class="summary-value">${total}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Thành công</div>
-                <div class="summary-value" style="color: #28a745;">${success}</div>
-            </div>
-            <div class="summary-item">
-                <div class="summary-label">Thất bại</div>
-                <div class="summary-value" style="color: #dc3545;">${failed}</div>
-            </div>
-        </div>
-    `;
-    
-    // Create results list
-    const resultsHTML = results.map(result => {
-        const trackingUrl = `https://spx.vn/track?${encodeURIComponent(result.code)}`;
-        const timeDisplay = result.actualTime ? formatTimestamp(result.actualTime) : '';
-        const noteDisplay = result.note ? `<span class="tracking-note">📝 ${escapeHtml(result.note)}</span>` : '';
+    resultsList.innerHTML = '';
+
+    results.forEach((result, index) => {
+        const resultCard = document.createElement('div');
+        resultCard.className = 'result-card';
         
         if (result.success) {
-            return `
-                <div class="result-item success">
-                    <div class="result-header">
-                        <div class="tracking-code">
-                            <div class="code-line">
-                                <span class="success-icon">✓</span>
-                                <span>${escapeHtml(result.code)}</span>
-                            </div>
-                            ${noteDisplay}
+            // Format time
+            const time = result.actualTime 
+                ? new Date(result.actualTime * 1000).toLocaleString('vi-VN')
+                : 'Không rõ';
+            
+            resultCard.innerHTML = `
+                <div class="result-header">
+                    <div class="tracking-code">
+                        <div class="code-line">
+                            <span>${result.code}</span>
+                            ${result.note ? `<span class="tracking-note">${result.note}</span>` : ''}
                         </div>
-                        <a href="${trackingUrl}" target="_blank" class="btn-detail">Xem chi tiết →</a>
                     </div>
-                    <div class="tracking-status">
-                        ${escapeHtml(result.description)}
+                    <div class="result-actions">
+                        <a href="https://spx.vn/track?${result.code}" 
+                           target="_blank" 
+                           class="btn-detail">Chi tiết →</a>
                     </div>
-                    ${timeDisplay ? `<div class="tracking-time">🕐 ${timeDisplay}</div>` : ''}
                 </div>
+                <div class="tracking-status">${result.description}</div>
+                <div class="tracking-time">🕒 ${time}</div>
             `;
         } else {
-            return `
-                <div class="result-item error">
-                    <div class="result-header">
-                        <div class="tracking-code">
-                            <div class="code-line">
-                                <span class="error-icon">✗</span>
-                                <span>${escapeHtml(result.code)}</span>
-                            </div>
-                            ${noteDisplay}
+            resultCard.innerHTML = `
+                <div class="result-header">
+                    <div class="tracking-code">
+                        <div class="code-line">
+                            <span>${result.code}</span>
+                            ${result.note ? `<span class="tracking-note">${result.note}</span>` : ''}
                         </div>
-                        <a href="${trackingUrl}" target="_blank" class="btn-detail">Xem chi tiết →</a>
                     </div>
-                    <div class="error-message">
-                        ${escapeHtml(result.error)}
-                    </div>
+                    <span class="status-badge error">✗</span>
                 </div>
+                <div class="error-message">${result.error}</div>
             `;
         }
-    }).join('');
-    
-    resultsList.innerHTML = summaryHTML + resultsHTML;
+        
+        resultsList.appendChild(resultCard);
+    });
 }
 
-function formatTimestamp(timestamp) {
-    const date = new Date(timestamp * 1000);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-}
+// ==================== TAB 2: MONITOR ====================
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// ========== TAB 2: MONITOR FUNCTIONS ==========
-
-const MONITOR_STORAGE_KEY = 'mvd_monitor_list';
-const MONITOR_STATE_KEY = 'mvd_monitor_state';
-const NOTIFICATION_KEY = 'mvd_notification_enabled';
 let monitorInterval = null;
+let isMonitoring = false;
 
 function loadMonitorData() {
-    const savedList = localStorage.getItem(MONITOR_STORAGE_KEY);
-    const notificationEnabled = localStorage.getItem(NOTIFICATION_KEY) === 'true';
+    const savedData = localStorage.getItem('monitorData');
+    const notificationEnabled = localStorage.getItem('notificationEnabled') === 'true';
     
-    if (savedList) {
-        document.getElementById('monitorInput').value = savedList;
-        displayMonitorList();
+    const monitorInput = document.getElementById('monitorInput');
+    const notificationToggle = document.getElementById('notificationToggle');
+    const toggleLabel = document.getElementById('toggleLabel');
+    
+    if (savedData) {
+        monitorInput.value = savedData;
     }
     
-    const toggle = document.getElementById('notificationToggle');
-    toggle.checked = notificationEnabled;
-    updateToggleLabel(notificationEnabled);
+    notificationToggle.checked = notificationEnabled;
+    toggleLabel.textContent = notificationEnabled ? 'BẬT' : 'TẮT';
     
+    // If we have data, start monitoring
+    if (savedData && notificationEnabled) {
+        startMonitoring();
+    }
+}
+
+async function handleSaveMonitorList() {
+    const monitorInput = document.getElementById('monitorInput');
+    const data = monitorInput.value.trim();
+    
+    if (!data) {
+        alert('Vui lòng nhập danh sách mã vận đơn cần theo dõi');
+        return;
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('monitorData', data);
+    
+    alert('✓ Đã lưu danh sách theo dõi');
+    
+    // If notifications are enabled, start monitoring
+    const notificationEnabled = document.getElementById('notificationToggle').checked;
     if (notificationEnabled) {
         startMonitoring();
     }
 }
 
-function handleSaveMonitorList() {
-    const monitorInput = document.getElementById('monitorInput');
-    const input = monitorInput.value.trim();
-    
-    if (!input) {
-        alert('Vui lòng nhập danh sách mã vận đơn');
-        return;
-    }
-    
-    localStorage.setItem(MONITOR_STORAGE_KEY, input);
-    displayMonitorList();
-    
-    const monitorStatus = document.getElementById('monitorStatus');
-    monitorStatus.textContent = '✅ Đã lưu danh sách theo dõi';
-    monitorStatus.classList.add('active');
-    
-    setTimeout(() => {
-        monitorStatus.classList.remove('active');
-    }, 3000);
-}
-
-function displayMonitorList() {
-    const input = localStorage.getItem(MONITOR_STORAGE_KEY);
-    if (!input) return;
-    
-    const trackingData = input
-        .split('\n')
-        .map(line => {
-            line = line.trim();
-            if (!line) return null;
-            
-            let code = line;
-            let note = '';
-            
-            if (line.includes('(')) {
-                const parts = line.split('(');
-                code = parts[0].trim();
-                note = parts.slice(1).join('(').replace(/\)/g, '').trim();
-            } else {
-                const parts = line.split(/\s+/);
-                code = parts[0];
-                note = parts.slice(1).join(' ').trim();
-            }
-            
-            return { code, note };
-        })
-        .filter(item => item !== null && item.code.length > 0);
-    
-    const monitorResults = document.getElementById('monitorResults');
-    const monitorList = document.getElementById('monitorList');
-    
-    if (trackingData.length === 0) {
-        monitorResults.style.display = 'none';
-        return;
-    }
-    
-    const html = trackingData.map(item => {
-        return `
-            <div class="monitor-item">
-                <div class="monitor-item-header">
-                    <span class="monitor-code">${escapeHtml(item.code)}</span>
-                    ${item.note ? `<span class="monitor-note">📝 ${escapeHtml(item.note)}</span>` : ''}
-                </div>
-                <div class="monitor-item-status" id="status-${escapeHtml(item.code)}">
-                    ⏳ Đang chờ cập nhật...
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    monitorList.innerHTML = html;
-    monitorResults.style.display = 'block';
-}
-
-function handleNotificationToggle(e) {
+async function handleNotificationToggle(e) {
     const enabled = e.target.checked;
-    localStorage.setItem(NOTIFICATION_KEY, enabled);
-    updateToggleLabel(enabled);
+    const toggleLabel = document.getElementById('toggleLabel');
+    
+    toggleLabel.textContent = enabled ? 'BẬT' : 'TẮT';
+    localStorage.setItem('notificationEnabled', enabled);
     
     if (enabled) {
-        if (!localStorage.getItem(MONITOR_STORAGE_KEY)) {
-            alert('Vui lòng lưu danh sách theo dõi trước');
-            e.target.checked = false;
-            return;
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                alert('⚠️ Bạn cần cho phép thông báo để sử dụng tính năng này');
+                e.target.checked = false;
+                toggleLabel.textContent = 'TẮT';
+                localStorage.setItem('notificationEnabled', false);
+                return;
+            }
         }
+        
         startMonitoring();
+        alert('✓ Đã bật theo dõi tự động. Trang web cần mở để nhận thông báo.');
     } else {
         stopMonitoring();
+        alert('Đã tắt theo dõi tự động');
     }
-}
-
-function updateToggleLabel(enabled) {
-    const label = document.getElementById('toggleLabel');
-    label.textContent = enabled ? '🔔 Thông báo: BẬT' : '🔕 Thông báo: TẮT';
-    label.style.color = enabled ? '#28a745' : '#666';
 }
 
 function startMonitoring() {
-    stopMonitoring(); // Clear existing interval
+    if (isMonitoring) return;
     
+    isMonitoring = true;
     const monitorStatus = document.getElementById('monitorStatus');
-    monitorStatus.textContent = '🔄 Đang theo dõi... Kiểm tra mỗi 5 phút';
-    monitorStatus.classList.add('active');
+    monitorStatus.innerHTML = '🟢 Đang theo dõi...';
+    monitorStatus.className = 'monitor-status-bar active';
     
     // Check immediately
-    checkMonitorList();
+    checkMonitoredShipments();
     
     // Then check every 5 minutes
-    monitorInterval = setInterval(checkMonitorList, 5 * 60 * 1000);
+    monitorInterval = setInterval(checkMonitoredShipments, 5 * 60 * 1000);
 }
 
 function stopMonitoring() {
+    isMonitoring = false;
+    
     if (monitorInterval) {
         clearInterval(monitorInterval);
         monitorInterval = null;
     }
     
     const monitorStatus = document.getElementById('monitorStatus');
-    monitorStatus.textContent = '⏸️ Đã dừng theo dõi';
-    monitorStatus.classList.add('active');
-    
-    setTimeout(() => {
-        monitorStatus.classList.remove('active');
-    }, 3000);
+    monitorStatus.innerHTML = '⚪ Không theo dõi';
+    monitorStatus.className = 'monitor-status-bar';
 }
 
-async function checkMonitorList() {
-    const input = localStorage.getItem(MONITOR_STORAGE_KEY);
+async function checkMonitoredShipments() {
+    const monitorInput = document.getElementById('monitorInput');
+    const input = monitorInput.value.trim();
+    
     if (!input) return;
     
+    const monitorStatus = document.getElementById('monitorStatus');
+    monitorStatus.innerHTML = '🔄 Đang kiểm tra...';
+    
+    // Parse tracking codes
     const trackingData = input
         .split('\n')
         .map(line => {
@@ -531,66 +378,123 @@ async function checkMonitorList() {
         })
         .filter(item => item !== null && item.code.length > 0);
     
-    const savedState = JSON.parse(localStorage.getItem(MONITOR_STATE_KEY) || '{}');
-    const newState = {};
+    if (trackingData.length === 0) return;
     
-    for (const item of trackingData) {
-        try {
-            const result = await fetchTrackingInfo(item.code, 0, item.note);
-            
-            const statusElement = document.getElementById(`status-${item.code}`);
-            if (result.success) {
-                const timeDisplay = result.actualTime ? formatTimestamp(result.actualTime) : '';
-                statusElement.innerHTML = `
-                    <div style="color: #28a745;">✓ ${escapeHtml(result.description)}</div>
-                    ${timeDisplay ? `<div style="font-size: 0.85rem; color: #888;">🕐 ${timeDisplay}</div>` : ''}
-                `;
-                
-                // Check for changes
-                const oldStatus = savedState[item.code];
-                if (oldStatus && oldStatus.tracking_code !== result.fullData?.tracking_code) {
-                    // Send browser notification
-                    sendBrowserNotification(item.code, item.note, result.description);
-                }
-                
-                newState[item.code] = {
-                    tracking_code: result.fullData?.tracking_code || '',
-                    description: result.description
-                };
-            } else {
-                if (statusElement) {
-                    statusElement.innerHTML = `<div style="color: #dc3545;">✗ ${escapeHtml(result.error)}</div>`;
-                }
-                newState[item.code] = savedState[item.code] || null;
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (error) {
-            console.error(`Error checking ${item.code}:`, error);
-        }
-    }
+    // Fetch all tracking info
+    const results = await Promise.all(
+        trackingData.map(item => fetchTrackingInfo(item.code, item.note))
+    );
     
-    localStorage.setItem(MONITOR_STATE_KEY, JSON.stringify(newState));
+    // Display monitor results
+    displayMonitorResults(results);
+    
+    // Check for status changes and send notifications
+    checkForStatusChanges(results);
+    
+    // Update status
+    const now = new Date().toLocaleTimeString('vi-VN');
+    monitorStatus.innerHTML = `🟢 Kiểm tra lúc ${now}`;
 }
 
-function sendBrowserNotification(code, note, description) {
-    if (!("Notification" in window)) {
-        console.log("Browser doesn't support notifications");
-        return;
-    }
+function displayMonitorResults(results) {
+    const monitorList = document.getElementById('monitorList');
+    const monitorResults = document.getElementById('monitorResults');
     
-    if (Notification.permission === "granted") {
-        const title = `📦 ${code}${note ? ` (${note})` : ''}`;
-        new Notification(title, {
-            body: `🔄 ${description}`,
-            icon: 'https://spx.vn/favicon.ico',
-            tag: code
-        });
-    } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                sendBrowserNotification(code, note, description);
+    monitorList.innerHTML = '';
+    
+    results.forEach(result => {
+        const item = document.createElement('div');
+        item.className = 'monitor-item';
+        
+        if (result.success) {
+            const time = result.actualTime 
+                ? new Date(result.actualTime * 1000).toLocaleString('vi-VN')
+                : 'Không rõ';
+            
+            item.innerHTML = `
+                <div class="monitor-item-header">
+                    <span class="monitor-code">${result.code}</span>
+                    ${result.note ? `<span class="monitor-note">${result.note}</span>` : ''}
+                </div>
+                <div class="monitor-status">${result.description}</div>
+                <div class="monitor-time">🕒 ${time}</div>
+            `;
+        } else {
+            item.innerHTML = `
+                <div class="monitor-item-header">
+                    <span class="monitor-code">${result.code}</span>
+                    ${result.note ? `<span class="monitor-note">${result.note}</span>` : ''}
+                </div>
+                <div class="monitor-error">❌ ${result.error}</div>
+            `;
+        }
+        
+        monitorList.appendChild(item);
+    });
+    
+    monitorResults.style.display = 'block';
+}
+
+function checkForStatusChanges(results) {
+    // Get previous states
+    const savedStates = JSON.parse(localStorage.getItem('trackingStates') || '{}');
+    let hasChanges = false;
+    
+    results.forEach(result => {
+        if (result.success) {
+            const previousState = savedStates[result.code];
+            const currentState = result.description;
+            
+            // If status changed, send notification
+            if (previousState && previousState !== currentState) {
+                sendNotification(result);
+                hasChanges = true;
             }
+            
+            // Update saved state
+            savedStates[result.code] = currentState;
+        }
+    });
+    
+    // Save updated states
+    localStorage.setItem('trackingStates', JSON.stringify(savedStates));
+    
+    // Play sound if there are changes
+    if (hasChanges) {
+        playNotificationSound();
+    }
+}
+
+function sendNotification(result) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        const title = `📦 Cập nhật: ${result.code}`;
+        const body = result.note 
+            ? `${result.note}\n${result.description}`
+            : result.description;
+        
+        new Notification(title, {
+            body: body,
+            icon: 'https://spx.vn/favicon.ico',
+            tag: result.code
         });
     }
+}
+
+function playNotificationSound() {
+    // Create a simple beep sound
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 800;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
 }

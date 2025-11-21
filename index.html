@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kiểm tra vận đơn SPX</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=6">
 </head>
 
 <body>
@@ -32,7 +32,6 @@
                     <span class="loader" style="display: none;"></span>
                 </button>
                 <div id="proxyStatus" class="proxy-status"></div>
-                <button id="switchProxyButton" class="btn-secondary">Đổi Proxy</button>
             </div>
 
             <div id="results" class="results-section" style="display: none;">
@@ -47,7 +46,7 @@
                 <textarea id="monitorInput"
                     placeholder="Nhập danh sách mã cần theo dõi&#10;Ví dụ:&#10;SPXVN05534258930B (Đơn chị a)&#10;VN2523294629250 Đơn chị b"
                     rows="8"></textarea>
-                
+
                 <div class="monitor-controls">
                     <button id="saveMonitorList" class="btn-primary">💾 Lưu danh sách</button>
                     <div class="toggle-container">
@@ -59,7 +58,7 @@
                     </div>
                 </div>
 
-                <div id="monitorStatus" class="monitor-status"></div>
+                <div id="monitorStatus" class="monitor-status-bar"></div>
             </div>
 
             <div id="monitorResults" class="results-section" style="display: none;">
@@ -69,7 +68,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=5"></script>
 </body>
 
 </html>
