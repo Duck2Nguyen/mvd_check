@@ -174,6 +174,59 @@ body {
     font-size: 1.8rem;
 }
 
+/* Filter Container */
+.filter-container {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.filter-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+}
+
+.filter-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #666;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.filter-btn:hover {
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.filter-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+}
+
+.no-results {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    font-style: italic;
+}
+
 .result-item {
     padding: 20px;
     margin-bottom: 15px;
@@ -315,6 +368,24 @@ body {
 .status-badge.error {
     background: #f8d7da;
     color: #721c24;
+}
+
+.status-badge.preparing {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+}
+
+.status-badge.shipping {
+    background: #cfe2ff;
+    color: #084298;
+    border: 1px solid #0d6efd;
+}
+
+.status-badge.delivered {
+    background: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #198754;
 }
 
 .result-note {

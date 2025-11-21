@@ -171,6 +171,7 @@ async function fetchTrackingInfo(trackingCode, note = '') {
                 success: true,
                 description: firstRecord?.description || 'Không có thông tin trạng thái',
                 actualTime: firstRecord?.actual_time || null,
+                trackingCode: firstRecord?.tracking_code || '',
                 fullData: firstRecord
             };
         } else {
@@ -194,6 +195,49 @@ async function fetchTrackingInfo(trackingCode, note = '') {
 
 function displayResults(results) {
     const resultsList = document.getElementById('resultsList');
+    const resultsSection = document.getElementById('results');
+    
+    // Create filter if not exists
+    let filterContainer = document.getElementById('filterContainer');
+    if (!filterContainer) {
+        filterContainer = document.createElement('div');
+        filterContainer.id = 'filterContainer';
+        filterContainer.className = 'filter-container';
+        filterContainer.innerHTML = `
+            <div class="filter-label">Lọc theo trạng thái:</div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">Tất cả (${results.length})</button>
+                <button class="filter-btn" data-filter="F000">Chuẩn bị hàng</button>
+                <button class="filter-btn" data-filter="F600">Đang giao</button>
+                <button class="filter-btn" data-filter="F980">Giao thành công</button>
+            </div>
+        `;
+        resultsSection.insertBefore(filterContainer, resultsList);
+        
+        // Add filter event listeners
+        filterContainer.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const filter = btn.dataset.filter;
+                filterResults(filter, results);
+            });
+        });
+    }
+    
+    // Update filter counts
+    const f000Count = results.filter(r => r.success && r.trackingCode === 'F000').length;
+    const f600Count = results.filter(r => r.success && r.trackingCode === 'F600').length;
+    const f980Count = results.filter(r => r.success && r.trackingCode === 'F980').length;
+    
+    filterContainer.querySelector('[data-filter="all"]').textContent = `Tất cả (${results.length})`;
+    filterContainer.querySelector('[data-filter="F000"]').textContent = `Chuẩn bị hàng (${f000Count})`;
+    filterContainer.querySelector('[data-filter="F600"]').textContent = `Đang giao (${f600Count})`;
+    filterContainer.querySelector('[data-filter="F980"]').textContent = `Giao thành công (${f980Count})`;
+    
+    // Store results globally for filtering
+    window.currentResults = results;
+    
     resultsList.innerHTML = '';
 
     results.forEach((result, index) => {
@@ -206,6 +250,8 @@ function displayResults(results) {
                 ? new Date(result.actualTime * 1000).toLocaleString('vi-VN')
                 : 'Không rõ';
             
+            const statusBadge = getStatusBadge(result.trackingCode);
+            
             resultCard.innerHTML = `
                 <div class="result-header">
                     <div class="tracking-code">
@@ -215,6 +261,7 @@ function displayResults(results) {
                         </div>
                     </div>
                     <div class="result-actions">
+                        ${statusBadge}
                         <a href="https://spx.vn/track?${result.code}" 
                            target="_blank" 
                            class="btn-detail">Chi tiết →</a>
@@ -240,6 +287,77 @@ function displayResults(results) {
         
         resultsList.appendChild(resultCard);
     });
+}
+
+// Helper function to get status badge
+function getStatusBadge(trackingCode) {
+    const badges = {
+        'F000': '<span class="status-badge preparing">Chuẩn bị hàng</span>',
+        'F600': '<span class="status-badge shipping">Đang giao</span>',
+        'F980': '<span class="status-badge delivered">Giao thành công</span>'
+    };
+    return badges[trackingCode] || '';
+}
+
+// Filter results function
+function filterResults(filter, results) {
+    const resultsList = document.getElementById('resultsList');
+    resultsList.innerHTML = '';
+    
+    const filteredResults = filter === 'all' 
+        ? results 
+        : results.filter(r => r.success && r.trackingCode === filter);
+    
+    filteredResults.forEach(result => {
+        const resultCard = document.createElement('div');
+        resultCard.className = 'result-card';
+        
+        if (result.success) {
+            const time = result.actualTime 
+                ? new Date(result.actualTime * 1000).toLocaleString('vi-VN')
+                : 'Không rõ';
+            
+            const statusBadge = getStatusBadge(result.trackingCode);
+            
+            resultCard.innerHTML = `
+                <div class="result-header">
+                    <div class="tracking-code">
+                        <div class="code-line">
+                            <span>${result.code}</span>
+                            ${result.note ? `<span class="tracking-note">${result.note}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="result-actions">
+                        ${statusBadge}
+                        <a href="https://spx.vn/track?${result.code}" 
+                           target="_blank" 
+                           class="btn-detail">Chi tiết →</a>
+                    </div>
+                </div>
+                <div class="tracking-status">${result.description}</div>
+                <div class="tracking-time">🕒 ${time}</div>
+            `;
+        } else {
+            resultCard.innerHTML = `
+                <div class="result-header">
+                    <div class="tracking-code">
+                        <div class="code-line">
+                            <span>${result.code}</span>
+                            ${result.note ? `<span class="tracking-note">${result.note}</span>` : ''}
+                        </div>
+                    </div>
+                    <span class="status-badge error">✗</span>
+                </div>
+                <div class="error-message">${result.error}</div>
+            `;
+        }
+        
+        resultsList.appendChild(resultCard);
+    });
+    
+    if (filteredResults.length === 0) {
+        resultsList.innerHTML = '<div class="no-results">Không có kết quả phù hợp</div>';
+    }
 }
 
 // ==================== TAB 2: MONITOR ====================
@@ -400,6 +518,47 @@ function displayMonitorResults(results) {
     const monitorList = document.getElementById('monitorList');
     const monitorResults = document.getElementById('monitorResults');
     
+    // Create filter if not exists
+    let monitorFilterContainer = document.getElementById('monitorFilterContainer');
+    if (!monitorFilterContainer) {
+        monitorFilterContainer = document.createElement('div');
+        monitorFilterContainer.id = 'monitorFilterContainer';
+        monitorFilterContainer.className = 'filter-container';
+        monitorFilterContainer.innerHTML = `
+            <div class="filter-label">Lọc theo trạng thái:</div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">Tất cả (${results.length})</button>
+                <button class="filter-btn" data-filter="F000">Chuẩn bị hàng</button>
+                <button class="filter-btn" data-filter="F600">Đang giao</button>
+                <button class="filter-btn" data-filter="F980">Giao thành công</button>
+            </div>
+        `;
+        monitorResults.insertBefore(monitorFilterContainer, monitorList);
+        
+        // Add filter event listeners
+        monitorFilterContainer.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                monitorFilterContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const filter = btn.dataset.filter;
+                filterMonitorResults(filter, results);
+            });
+        });
+    }
+    
+    // Update filter counts
+    const f000Count = results.filter(r => r.success && r.trackingCode === 'F000').length;
+    const f600Count = results.filter(r => r.success && r.trackingCode === 'F600').length;
+    const f980Count = results.filter(r => r.success && r.trackingCode === 'F980').length;
+    
+    monitorFilterContainer.querySelector('[data-filter="all"]').textContent = `Tất cả (${results.length})`;
+    monitorFilterContainer.querySelector('[data-filter="F000"]').textContent = `Chuẩn bị hàng (${f000Count})`;
+    monitorFilterContainer.querySelector('[data-filter="F600"]').textContent = `Đang giao (${f600Count})`;
+    monitorFilterContainer.querySelector('[data-filter="F980"]').textContent = `Giao thành công (${f980Count})`;
+    
+    // Store results globally for filtering
+    window.currentMonitorResults = results;
+    
     monitorList.innerHTML = '';
     
     results.forEach(result => {
@@ -411,10 +570,13 @@ function displayMonitorResults(results) {
                 ? new Date(result.actualTime * 1000).toLocaleString('vi-VN')
                 : 'Không rõ';
             
+            const statusBadge = getStatusBadge(result.trackingCode);
+            
             item.innerHTML = `
                 <div class="monitor-item-header">
                     <span class="monitor-code">${result.code}</span>
                     ${result.note ? `<span class="monitor-note">${result.note}</span>` : ''}
+                    ${statusBadge}
                 </div>
                 <div class="monitor-status">${result.description}</div>
                 <div class="monitor-time">🕒 ${time}</div>
@@ -433,6 +595,53 @@ function displayMonitorResults(results) {
     });
     
     monitorResults.style.display = 'block';
+}
+
+// Filter monitor results function
+function filterMonitorResults(filter, results) {
+    const monitorList = document.getElementById('monitorList');
+    monitorList.innerHTML = '';
+    
+    const filteredResults = filter === 'all' 
+        ? results 
+        : results.filter(r => r.success && r.trackingCode === filter);
+    
+    filteredResults.forEach(result => {
+        const item = document.createElement('div');
+        item.className = 'monitor-item';
+        
+        if (result.success) {
+            const time = result.actualTime 
+                ? new Date(result.actualTime * 1000).toLocaleString('vi-VN')
+                : 'Không rõ';
+            
+            const statusBadge = getStatusBadge(result.trackingCode);
+            
+            item.innerHTML = `
+                <div class="monitor-item-header">
+                    <span class="monitor-code">${result.code}</span>
+                    ${result.note ? `<span class="monitor-note">${result.note}</span>` : ''}
+                    ${statusBadge}
+                </div>
+                <div class="monitor-status">${result.description}</div>
+                <div class="monitor-time">🕒 ${time}</div>
+            `;
+        } else {
+            item.innerHTML = `
+                <div class="monitor-item-header">
+                    <span class="monitor-code">${result.code}</span>
+                    ${result.note ? `<span class="monitor-note">${result.note}</span>` : ''}
+                </div>
+                <div class="monitor-error">❌ ${result.error}</div>
+            `;
+        }
+        
+        monitorList.appendChild(item);
+    });
+    
+    if (filteredResults.length === 0) {
+        monitorList.innerHTML = '<div class="no-results">Không có kết quả phù hợp</div>';
+    }
 }
 
 function checkForStatusChanges(results) {
