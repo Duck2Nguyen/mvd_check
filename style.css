@@ -10,11 +10,13 @@ body {
     min-height: 100vh;
     padding: 20px;
     color: #333;
+    background-attachment: fixed;
 }
 
 .container {
     max-width: 800px;
     margin: 0 auto;
+    width: 100%;
 }
 
 .header {
@@ -179,9 +181,9 @@ body {
 .result-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 8px;
-    gap: 10px;
+    gap: 12px;
 }
 
 .tracking-code {
@@ -190,6 +192,37 @@ body {
     color: #333;
     font-family: "Courier New", monospace;
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.code-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.result-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.tracking-note {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    color: #5a67d8;
+    background: #eef2ff;
+    border-radius: 5px;
+    border: 1px solid #c7d2fe;
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .btn-detail {
@@ -233,15 +266,19 @@ body {
 }
 
 .success-icon {
-    display: inline-block;
-    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: #28a745;
+    flex-shrink: 0;
 }
 
 .error-icon {
-    display: inline-block;
-    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: #dc3545;
+    flex-shrink: 0;
 }
 
 .summary {
@@ -271,12 +308,17 @@ body {
 }
 
 @media (max-width: 600px) {
+    body {
+        padding: 10px;
+    }
+
     .header h1 {
         font-size: 1.8rem;
+        margin-bottom: 8px;
     }
 
     .subtitle {
-        font-size: 1rem;
+        font-size: 0.95rem;
     }
 
     .input-section,
@@ -284,8 +326,130 @@ body {
         padding: 20px;
     }
 
+    #trackingInput {
+        font-size: 0.9rem;
+        padding: 12px;
+    }
+
+    .btn-primary {
+        padding: 12px;
+        font-size: 1rem;
+    }
+
+    .btn-secondary {
+        font-size: 0.85rem;
+        padding: 8px;
+    }
+
     .summary {
+        flex-direction: row;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .summary-item {
+        flex: 1;
+    }
+
+    .summary-label {
+        font-size: 0.8rem;
+    }
+
+    .summary-value {
+        font-size: 1.2rem;
+    }
+
+    .result-item {
+        padding: 15px;
+    }
+
+    .result-header {
         flex-direction: column;
+        align-items: flex-start;
         gap: 10px;
+    }
+
+    .tracking-code {
+        font-size: 0.95rem;
+        width: 100%;
+    }
+
+    .code-line {
+        word-break: break-all;
+    }
+
+    .code-line span:first-child {
+        flex-shrink: 0;
+    }
+    .tracking-note {
+        max-width: 100%;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .btn-detail {
+        width: 100%;
+        justify-content: center;
+        padding: 8px 12px;
+    }
+
+    .tracking-status {
+        font-size: 0.9rem;
+    }
+
+    .tracking-time {
+        font-size: 0.85rem;
+    }
+
+    .results-section h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Tablet */
+@media (min-width: 601px) and (max-width: 1024px) {
+    .container {
+        max-width: 700px;
+    }
+
+    .header h1 {
+        font-size: 2.2rem;
+    }
+
+    .input-section,
+    .results-section {
+        padding: 25px;
+    }
+
+    .result-item {
+        padding: 18px;
+    }
+}
+
+/* Desktop Large */
+@media (min-width: 1025px) {
+    .container {
+        max-width: 900px;
+    }
+
+    .result-item:hover {
+        transform: translateX(8px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Ultra-wide screens */
+@media (min-width: 1440px) {
+    .container {
+        max-width: 1000px;
+    }
+
+    .header h1 {
+        font-size: 3rem;
+    }
+
+    .input-section,
+    .results-section {
+        padding: 35px;
     }
 }

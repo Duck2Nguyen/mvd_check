@@ -38,9 +38,14 @@ function switchProxy() {
     currentProxyIndex = (currentProxyIndex + 1) % CORS_PROXIES.length;
     updateProxyStatus();
     
-    // Show notification
-    const proxyNames = [ 'Cors.sh','AllOrigins', 'CorsProxy.io', 'CodeTabs', 'Freeboard'];
-    alert(`Đã chuyển sang proxy: ${proxyNames[currentProxyIndex]}`);
+    // Auto re-check if there are tracking codes
+    const trackingInput = document.getElementById('trackingInput');
+    const input = trackingInput.value.trim();
+    
+    if (input) {
+        // Auto trigger check with new proxy
+        handleCheck();
+    }
 }
 
 function updateProxyStatus() {
@@ -71,13 +76,35 @@ async function handleCheck() {
         return;
     }
 
-    // Parse tracking codes
-    const trackingCodes = input
+    // Parse tracking codes with notes
+    const trackingData = input
         .split('\n')
-        .map(code => code.trim())
-        .filter(code => code.length > 0);
+        .map(line => {
+            line = line.trim();
+            if (!line) return null;
+            
+            // Check if line contains ( or whitespace after code
+            let code = line;
+            let note = '';
+            
+            // Split by ( first
+            if (line.includes('(')) {
+                const parts = line.split('(');
+                code = parts[0].trim();
+                // Remove ) and get note content
+                note = parts.slice(1).join('(').replace(/\)/g, '').trim();
+            } else {
+                // Split by whitespace
+                const parts = line.split(/\s+/);
+                code = parts[0];
+                note = parts.slice(1).join(' ').trim();
+            }
+            
+            return { code, note };
+        })
+        .filter(item => item !== null && item.code.length > 0);
 
-    if (trackingCodes.length === 0) {
+    if (trackingData.length === 0) {
         alert('Không tìm thấy mã vận đơn hợp lệ');
         return;
     }
@@ -90,7 +117,7 @@ async function handleCheck() {
     try {
         // Fetch all tracking info
         const results = await Promise.all(
-            trackingCodes.map(code => fetchTrackingInfo(code))
+            trackingData.map(item => fetchTrackingInfo(item.code, 0, item.note))
         );
 
         // Display results
@@ -113,7 +140,7 @@ async function handleCheck() {
     }
 }
 
-async function fetchTrackingInfo(trackingCode, retryCount = 0) {
+async function fetchTrackingInfo(trackingCode, retryCount = 0, note = '') {
     const apiUrl = `${API_BASE_URL}?spx_tn=${encodeURIComponent(trackingCode)}&language_code=${LANGUAGE_CODE}`;
     
     // Try with current proxy
@@ -140,6 +167,7 @@ async function fetchTrackingInfo(trackingCode, retryCount = 0) {
             
             return {
                 code: trackingCode,
+                note: note,
                 success: true,
                 description: firstRecord?.description || 'Không có thông tin trạng thái',
                 actualTime: firstRecord?.actual_time || null,
@@ -148,6 +176,7 @@ async function fetchTrackingInfo(trackingCode, retryCount = 0) {
         } else {
             return {
                 code: trackingCode,
+                note: note,
                 success: false,
                 error: data.message || 'Không thể lấy thông tin vận đơn'
             };
@@ -174,6 +203,7 @@ async function fetchTrackingInfo(trackingCode, retryCount = 0) {
                     
                     return {
                         code: trackingCode,
+                        note: note,
                         success: true,
                         description: firstRecord?.description || 'Không có thông tin trạng thái',
                         actualTime: firstRecord?.actual_time || null,
@@ -187,6 +217,7 @@ async function fetchTrackingInfo(trackingCode, retryCount = 0) {
         
         return {
             code: trackingCode,
+            note: note,
             success: false,
             error: 'Lỗi kết nối: ' + (error.name === 'AbortError' ? 'Timeout' : error.message)
         };
@@ -223,14 +254,18 @@ function displayResults(results) {
     const resultsHTML = results.map(result => {
         const trackingUrl = `https://spx.vn/track?${encodeURIComponent(result.code)}`;
         const timeDisplay = result.actualTime ? formatTimestamp(result.actualTime) : '';
+        const noteDisplay = result.note ? `<span class="tracking-note">📝 ${escapeHtml(result.note)}</span>` : '';
         
         if (result.success) {
             return `
                 <div class="result-item success">
                     <div class="result-header">
                         <div class="tracking-code">
-                            <span class="success-icon">✓</span>
-                            ${escapeHtml(result.code)}
+                            <div class="code-line">
+                                <span class="success-icon">✓</span>
+                                <span>${escapeHtml(result.code)}</span>
+                            </div>
+                            ${noteDisplay}
                         </div>
                         <a href="${trackingUrl}" target="_blank" class="btn-detail">Xem chi tiết →</a>
                     </div>
@@ -245,8 +280,11 @@ function displayResults(results) {
                 <div class="result-item error">
                     <div class="result-header">
                         <div class="tracking-code">
-                            <span class="error-icon">✗</span>
-                            ${escapeHtml(result.code)}
+                            <div class="code-line">
+                                <span class="error-icon">✗</span>
+                                <span>${escapeHtml(result.code)}</span>
+                            </div>
+                            ${noteDisplay}
                         </div>
                         <a href="${trackingUrl}" target="_blank" class="btn-detail">Xem chi tiết →</a>
                     </div>
